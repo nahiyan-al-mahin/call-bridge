@@ -5,7 +5,6 @@ const http = require('http');
 const express = require('express');
 const { Server } = require('socket.io');
 const G = require('./game');
-const history = require('./history');
 
 const PORT = process.env.PORT || 3000;
 const { minPlayers: MIN_PLAYERS, maxPlayers: MAX_PLAYERS } = G.DEFAULT_CONFIG;
@@ -16,13 +15,11 @@ const ROOM_IDLE_MS = 30 * 60 * 1000; // delete rooms with nobody connected for 3
 
 const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
-// Finished games, newest first.
-app.get('/api/history', (req, res) => res.json(history.load().reverse()));
 const server = http.createServer(app);
 const io = new Server(server);
 
 // code -> { code, players: [{ token, name, socketId, connected, left, graceTimer, graceUntil }],
-//           game, saved, timer, deadline, version, emptySince }
+//           game, timer, deadline, version, emptySince }
 // Seat index == index in players. The host is the first player who hasn't left.
 const rooms = new Map();
 
@@ -117,19 +114,13 @@ function clearGrace(p) {
   p.graceUntil = null;
 }
 
-// Once a game is over (normal win or someone leaving): stop the clocks and
-// save it to the history file, exactly once.
+// Once a game is over (normal win or someone leaving): stop the turn clock
+// and any leave countdowns.
 function finishIfOver(room) {
   const g = room.game;
-  if (!g || g.phase !== 'gameOver' || room.saved) return;
-  room.saved = true;
+  if (!g || g.phase !== 'gameOver') return;
   stopTimer(room);
   room.players.forEach(clearGrace);
-  try {
-    history.append(history.recordFor(room.code, room.players.map((p) => p.name), g));
-  } catch (err) {
-    console.error(`Could not save game history: ${err.message}`);
-  }
 }
 
 function update(room) {
@@ -246,7 +237,6 @@ io.on('connection', (socket) => {
     if (room.players.length < MIN_PLAYERS) throw new Error(`Need at least ${MIN_PLAYERS} players`);
     if (room.game) throw new Error('Game already running');
     room.game = G.createGame(room.players.length);
-    room.saved = false;
     G.startRound(room.game);
     update(room);
   });

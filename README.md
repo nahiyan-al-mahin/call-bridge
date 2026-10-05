@@ -22,7 +22,6 @@ npm test           # unit tests (game.js) + end-to-end socket tests
 7. To see the timer in action, leave a turn alone for 20 seconds. Everyone sees a notice, the revealed card appears face up beside that player's seat, and a card is played for them.
 8. To test reconnecting, refresh any tab mid-game. It rejoins the same seat with the same hand.
 9. To test leaving, click **Exit** (top bar, next to Rules) in one tab and confirm with **Leave**. The other tabs go straight to the result screen, which says who left. Or close a tab instead: the others see "Reconnecting… 60s" on that seat, and the game ends when the countdown reaches 0.
-10. On the home screen, **Past games** lists every finished game.
 
 Each tab's seat is stored in `sessionStorage`, which is per tab. That is why several tabs in one browser count as separate players, and why a refresh keeps you in your seat. Closing a tab mid-game starts the 60-second countdown described below.
 
@@ -50,41 +49,16 @@ Each tab's seat is stored in `sessionStorage`, which is per tab. That is why sev
 
 The numbers are in `DEFAULT_CONFIG` at the top of `game.js`: hand size, call range, nil points, target score, turn length and timeout call. The legal-play rule is in `legalCards()`. The same rules are shown in the game under **How to play** / **Rules**.
 
-## Game history
-
-Every finished game is appended to `data/history.json`, whether it ended in a normal win or because someone left. The file is created on first use and is not committed to git. Each record looks like this:
-
-```json
-{
-  "date": "2026-10-05T14:35:08.123Z",
-  "room": "LQYC",
-  "players": ["Ann", "Bob", "Cat"],
-  "rounds": [
-    { "round": 1, "players": [{ "name": "Ann", "call": null, "tricks": 5, "points": 5 }, "…"] }
-  ],
-  "totals": [{ "name": "Ann", "score": 31 }, "…"],
-  "winners": ["Ann"],
-  "ended": { "type": "win" }
-}
-```
-
-- `call` is `null` in round 1, which has no calls, and `0` means Nil.
-- When a player leaves, `ended` is `{ "type": "left", "player": "Bob" }`, and `winners` can hold more than one name.
-- The file is written to a temporary file and then renamed into place, so a crash can't leave it half-written.
-- The **Past games** screen reads it from `GET /api/history`, newest first.
-- Set `HISTORY_FILE` to store it somewhere else. The tests use a temporary file.
-
 ## Project layout
 
 ```
 game.js              Pure game logic (deck, deal, calls, legal moves, trick winner, scoring, timeout move, leaving)
 server.js            Express server + Socket.IO rooms, lobby, game flow, turn timer, reconnect, 60 s leave grace
-history.js           Reads/appends finished games in data/history.json
-public/index.html    Screens: home, lobby, table, scoreboard, rules, exit confirmation, past games, final result
+public/index.html    Screens: home, lobby, table, scoreboard, rules, exit confirmation, final result
 public/style.css     Glass theme, table layout and CSS-drawn cards
 public/client.js     Socket client + rendering
 test/game.test.js    Unit tests for game.js, including simulated full 2/3/4-player games and leaving
-test/server.test.js  End-to-end: full game with a reconnect, leaving, shared wins, host hand-over, saved history
+test/server.test.js  End-to-end: full game with a reconnect, leaving, shared wins, host hand-over
 test/timer.test.js   Short timers (TURN_MS, LEAVE_GRACE_MS env vars): auto-play, and the leave grace period
 test/helpers.js      Shared test helpers
 ```
@@ -108,4 +82,4 @@ Every action replies through an ack: `{ ok: true }` or `{ ok: false, error }`. T
 - for each player, `left` and `graceUntil` (when a dropped player's 60 seconds run out);
 - a `game` object with only that player's own hand, legal cards and call options, the public `revealed` cards, and after game over `winners` and `endReason`.
 
-Rooms with nobody connected are deleted after 30 minutes. Live games are in memory only, so restarting the server ends them; finished games stay in `data/history.json`. The tests use two environment variables: `TURN_MS` changes the turn timer, and `LEAVE_GRACE_MS` changes the 60-second leave countdown.
+Rooms with nobody connected are deleted after 30 minutes. Everything is in memory only: restarting the server ends all games, and nothing is saved to disk. The tests use two environment variables: `TURN_MS` changes the turn timer, and `LEAVE_GRACE_MS` changes the 60-second leave countdown.

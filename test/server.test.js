@@ -2,12 +2,8 @@
 // End-to-end: socket clients play complete games against the real server.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('fs');
-const { harness, call, synced, waitFor, setupRoom, tempHistory } = require('./helpers');
-
-const HISTORY = tempHistory(); // before loading the server
 const { server, shutdown, rooms } = require('../server');
-const savedGames = () => JSON.parse(fs.readFileSync(HISTORY, 'utf8'));
+const { harness, call, synced, waitFor, setupRoom } = require('./helpers');
 
 const h = harness(server);
 test.before(() => h.start());
@@ -94,16 +90,8 @@ test('3 players: full game to 29 with a reconnect', async () => {
   assert.ok(g.scores[g.winner] >= 29);
   assert.equal(g.standings[0].player, g.winner);
   assert.equal(seats[0].state.deadline, null); // timer stopped
-
-  // Saved to history
-  const rec = savedGames().find((r) => r.room === code);
-  assert.deepEqual(rec.ended, { type: 'win' });
-  assert.deepEqual(rec.players, ['Ann', 'Bob', 'Cat']);
-  assert.deepEqual(rec.winners, [rec.players[g.winner]]);
-  assert.equal(rec.rounds.length, g.history.length);
-  assert.equal(rec.rounds[0].players[0].call, null); // round 1: no calls
-  assert.deepEqual(rec.totals.map((t) => t.score), g.scores);
-  assert.ok(!Number.isNaN(Date.parse(rec.date)));
+  assert.deepEqual(g.endReason, { type: 'win' });
+  assert.deepEqual(g.winners, [g.winner]);
 
   assert.ok((await call(seats[0], 'backToLobby')).ok);
   await synced(seats);
@@ -127,11 +115,6 @@ test('leaving mid-game ends it for everyone; the leader who left cannot win', as
   assert.equal(seats[0].state.players[1].left, true);
   assert.equal(seats[0].state.deadline, null);
 
-  const rec = savedGames().find((r) => r.room === code);
-  assert.deepEqual(rec.ended, { type: 'left', player: 'Bob' });
-  assert.deepEqual(rec.winners, ['Cat']);
-  assert.deepEqual(rec.totals, [{ name: 'Ann', score: 3 }, { name: 'Bob', score: 10 }, { name: 'Cat', score: 7 }]);
-
   // Ann (still host) returns to the lobby; Bob's seat is gone.
   assert.ok((await call(seats[0], 'backToLobby')).ok);
   await waitFor(() => seats[2].state.phase === 'lobby', 'lobby');
@@ -149,7 +132,6 @@ test('a tie at the moment someone leaves is a shared win; host role passes on', 
   await waitFor(() => seats[1].state.phase === 'gameOver', 'game over');
   assert.deepEqual(seats[1].state.game.winners, [1, 2]);
   assert.equal(seats[1].state.game.winner, null);
-  assert.deepEqual(savedGames().find((r) => r.room === code).winners, ['Bob', 'Cat']);
 
   // Bob is the new host and can take the others back to the lobby.
   assert.equal(seats[1].state.host, 1);
@@ -158,13 +140,4 @@ test('a tie at the moment someone leaves is a shared win; host role passes on', 
   await waitFor(() => seats[3].state.phase === 'lobby', 'lobby');
   assert.deepEqual(seats[3].state.players.map((p) => p.name), ['Bob', 'Cat', 'Dan']);
   assert.equal(seats[3].state.host, 0);
-});
-
-test('GET /api/history lists finished games, newest first', async () => {
-  const res = await fetch(`${h.url()}/api/history`);
-  assert.equal(res.status, 200);
-  const list = await res.json();
-  assert.ok(list.length >= 3);
-  const dates = list.map((r) => Date.parse(r.date));
-  assert.deepEqual(dates, dates.slice().sort((a, b) => b - a));
 });

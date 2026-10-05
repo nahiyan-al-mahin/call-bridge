@@ -131,7 +131,7 @@ $('btn-final-leave').onclick = leave;
 $('btn-start').onclick = () => emit('start');
 $('btn-again').onclick = () => emit('backToLobby');
 
-const OVERLAYS = ['scoreboard', 'rules', 'confirm-exit', 'past-games'];
+const OVERLAYS = ['scoreboard', 'rules', 'confirm-exit'];
 const openOverlay = (id) => $(id).classList.remove('hidden');
 const closeOverlays = () => OVERLAYS.forEach((id) => $(id).classList.add('hidden'));
 $('btn-scores').onclick = () => { renderScoreTable($('score-table')); openOverlay('scoreboard'); };
@@ -146,49 +146,6 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeOverl
 $('btn-exit').onclick = () => { openOverlay('confirm-exit'); $('btn-exit-stay').focus(); };
 $('btn-exit-stay').onclick = () => $('confirm-exit').classList.add('hidden');
 $('btn-exit-leave').onclick = () => { closeOverlays(); leave(); };
-
-// Past games (home screen), from the server's saved history.
-$('btn-past').onclick = async () => {
-  const list = $('past-list');
-  list.innerHTML = '<p class="past-empty">Loading…</p>';
-  openOverlay('past-games');
-  try {
-    const res = await fetch('/api/history');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    renderPastGames(await res.json());
-  } catch (err) {
-    list.innerHTML = `<p class="past-empty">Couldn't load past games (${esc(err.message)}).</p>`;
-  }
-};
-
-function renderPastGames(games) {
-  const list = $('past-list');
-  if (!games.length) { list.innerHTML = '<p class="past-empty">No finished games yet.</p>'; return; }
-  list.innerHTML = games.map((r) => {
-    const winners = r.winners.map(esc).join(' &amp; ') || 'nobody';
-    const result = r.ended.type === 'left'
-      ? `${esc(r.ended.player)} left the game · ${r.winners.length > 1 ? 'shared win' : 'winner'}: ${winners}`
-      : `${winners} won`;
-    const totals = r.totals.map((t) => {
-      const won = r.winners.includes(t.name);
-      return `<span class="stat${won ? ' win' : ''}">${won ? '🏆 ' : ''}${esc(t.name)} <b>${t.score}</b></span>`;
-    }).join('');
-    const head = r.players.map((n) => `<th>${esc(n)}</th>`).join('');
-    const rows = r.rounds.map((rd) => `<tr><td>R${rd.round}</td>` + rd.players.map((p) => {
-      const what = p.call === null ? `won ${p.tricks}` : `${p.tricks}/${callName(p.call)}`;
-      return `<td class="${p.points < 0 ? 'neg' : 'pos'}">${what} → ${signed(p.points)}</td>`;
-    }).join('') + '</tr>').join('') ||
-      `<tr><td colspan="${r.players.length + 1}">Ended before any round finished</td></tr>`;
-    return `<article class="past-game">` +
-      `<div class="past-top"><span>${esc(new Date(r.date).toLocaleString())}</span>` +
-      `<span>Room <b>${esc(r.room)}</b> · ${r.rounds.length} round${r.rounds.length === 1 ? '' : 's'}</span></div>` +
-      `<div class="past-result${r.ended.type === 'left' ? ' left' : ''}">${result}</div>` +
-      `<div class="past-totals">${totals}</div>` +
-      `<details><summary>Round by round</summary><div class="table-scroll"><table class="scores">` +
-      `<thead><tr><th>Round</th>${head}</tr></thead><tbody>${rows}</tbody></table></div></details>` +
-      `</article>`;
-  }).join('');
-}
 
 // Collapsible live scoreboard (remembered per browser)
 function setScorePanelCollapsed(collapsed) {

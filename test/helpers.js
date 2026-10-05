@@ -1,18 +1,6 @@
 'use strict';
 // Shared helpers for the socket integration tests.
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
 const { io: connect } = require('socket.io-client');
-
-// Points the server's game history at a throwaway file. Call before requiring ../server.
-function tempHistory() {
-  const file = path.join(os.tmpdir(), `callbridge-history-${process.pid}.json`);
-  fs.rmSync(file, { force: true });
-  process.env.HISTORY_FILE = file;
-  process.on('exit', () => fs.rmSync(file, { force: true }));
-  return file;
-}
 
 function harness(server) {
   let url;
@@ -22,7 +10,6 @@ function harness(server) {
       await new Promise((r) => server.listen(0, r));
       url = `http://localhost:${server.address().port}`;
     },
-    url: () => url,
     stop() {
       clients.forEach((c) => c.disconnect());
     },
@@ -72,4 +59,4 @@ async function waitFor(fn, what = 'condition') {
   throw new Error(`timed out waiting for ${what}`);
 }
 
-module.exports = { harness, call, sleep, synced, waitFor, setupRoom, tempHistory };
+module.exports = { harness, call, sleep, synced, waitFor, setupRoom };

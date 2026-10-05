@@ -4,10 +4,8 @@ process.env.TURN_MS = '200';
 process.env.LEAVE_GRACE_MS = '300';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { harness, sleep, synced, waitFor, setupRoom, call, tempHistory } = require('./helpers');
-
-tempHistory(); // before loading the server
 const { server, shutdown } = require('../server');
+const { harness, sleep, synced, waitFor, setupRoom, call } = require('./helpers');
 
 const h = harness(server);
 test.before(() => h.start());
