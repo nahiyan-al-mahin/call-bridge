@@ -1,0 +1,10 @@
+# Dependencies (reinstall with `npm install`)
+node_modules/
+
+# Runtime data: finished-game history written by the server
+data/
+
+# Logs and temp files
+npm-debug.log*
+*.log
+*.tmp
