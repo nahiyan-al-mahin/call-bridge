@@ -6,7 +6,9 @@ const express = require('express');
 const { Server } = require('socket.io');
 const G = require('./game');
 
-const PORT = process.env.PORT || 3000;
+// Hosts like Render pass the port in PORT and need us to listen on all interfaces.
+const PORT = Number(process.env.PORT) || 3000;
+const HOST = process.env.HOST || '0.0.0.0';
 const { minPlayers: MIN_PLAYERS, maxPlayers: MAX_PLAYERS } = G.DEFAULT_CONFIG;
 const TURN_MS = Number(process.env.TURN_MS) || G.DEFAULT_CONFIG.turnMs;
 // A player who drops mid-game has this long to come back before the game ends.
@@ -15,6 +17,7 @@ const ROOM_IDLE_MS = 30 * 60 * 1000; // delete rooms with nobody connected for 3
 
 const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
+app.get('/healthz', (req, res) => res.type('text').send('ok')); // for the host's health check
 const server = http.createServer(app);
 const io = new Server(server);
 
@@ -323,7 +326,7 @@ function shutdown(cb) {
 }
 
 if (require.main === module) {
-  server.listen(PORT, () => console.log(`Call Bridge running at http://localhost:${PORT}`));
+  server.listen(PORT, HOST, () => console.log(`Call Bridge listening on ${HOST}:${PORT} (local: http://localhost:${PORT})`));
 }
 
 module.exports = { server, io, rooms, shutdown };

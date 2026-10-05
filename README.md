@@ -10,6 +10,20 @@ npm start          # http://localhost:3000  (set PORT to change)
 npm test           # unit tests (game.js) + end-to-end socket tests
 ```
 
+The server listens on `process.env.PORT` (default 3000) on all interfaces (`0.0.0.0`; set `HOST` to change). The browser connects to Socket.IO on the same origin it was loaded from, so it works unchanged behind HTTPS. `GET /healthz` returns `ok` for health checks. Requires Node 18 or newer.
+
+## Deploy on Render
+
+`render.yaml` describes the service as a Render Blueprint:
+- a Node web service on the free plan;
+- build with `npm install`, start with `npm start`;
+- health check on `/healthz`;
+- Node 22, set through `NODE_VERSION`.
+
+To deploy, create it from the repo via **New → Blueprint**, or enter the same settings by hand under **New → Web Service**.
+
+Keep it to **one instance**: rooms and games live in the server's memory, so a restart or redeploy ends games in progress. On Render's free plan the service also sleeps after about 15 minutes without traffic. The first visit after that takes a while to wake it, and any game that was running is gone.
+
 ## Playing with several browser tabs
 
 1. Run `npm start` and open **http://localhost:3000** in 2, 3 or 4 tabs. They can all be in the same browser.
@@ -61,6 +75,7 @@ test/game.test.js    Unit tests for game.js, including simulated full 2/3/4-play
 test/server.test.js  End-to-end: full game with a reconnect, leaving, shared wins, host hand-over
 test/timer.test.js   Short timers (TURN_MS, LEAVE_GRACE_MS env vars): auto-play, and the leave grace period
 test/helpers.js      Shared test helpers
+render.yaml          Render Blueprint (web service config)
 ```
 
 ## Socket events

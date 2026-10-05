@@ -1,0 +1,16 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: call-bridge
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true
+    # Rooms and games live in this one server's memory, so keep a single instance
+    # (scaling out would split players across separate game states).
+    numInstances: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
