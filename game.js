@@ -93,10 +93,11 @@ function callOptions(cfg = DEFAULT_CONFIG) {
 }
 
 // call === null means round 1 (no calls): 1 point per trick.
+// A regular call succeeds only on exactly N or N+1 tricks; fewer or N+2+ fails.
 function roundDelta(call, won, cfg = DEFAULT_CONFIG) {
   if (call === null) return won;
   if (call === 0) return won === 0 ? cfg.nilPoints : -cfg.nilPoints;
-  return won >= call ? call : -call;
+  return won === call || won === call + 1 ? call : -call;
 }
 
 function createGame(numPlayers, config = {}) {

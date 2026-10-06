@@ -47,8 +47,10 @@ Each tab's seat is stored in `sessionStorage`, which is per tab. That is why sev
 - **From round 2:** each player calls 2 to 12, or **Nil** (0), meaning they will win no tricks.
 - **Play:** follow the suit that was led if you can. If you can't, you may play any card. **Spades are trump:** any spade beats any card of another suit. Ranks are A K Q J 10 9 8 7 6 5 4 3 2. The trick winner leads next.
 - **Scoring:**
-  - Win at least your call: **+call**. Extra tricks add nothing.
+  - Win exactly your call or one more: **+call**.
   - Win fewer than your call: **−call**.
+  - Win two or more over your call: **−call** (too many tricks also fails).
+  - Example: call 3 → win 3 or 4 = +3; win 2 = −3; win 5 or 6 = −3.
   - Nil call: win no tricks for **+10**, or win any trick for **−10**.
 - **Game end:** the first player to reach **29 or more** total points wins. Scores are checked at the end of each round. If two or more players tie for the top score at 29 or more, play continues until one player leads alone.
 - **Timer:** 20 seconds per turn. If time runs out, one random card from that player's hand is shown face up to everyone, and it stays face up until it is played. Then:

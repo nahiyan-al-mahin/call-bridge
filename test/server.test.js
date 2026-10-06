@@ -3,6 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { server, shutdown, rooms } = require('../server');
+const G = require('../game');
 const { harness, call, synced, waitFor, setupRoom } = require('./helpers');
 
 const h = harness(server);
@@ -59,6 +60,16 @@ test('3 players: full game to 29 with a reconnect', async () => {
   assert.equal(b2.state.game.hand.length, 13);
   assert.equal(seats[0].state.players[1].connected, true);
 
+  // Players always play legal[0]. To make calls that can succeed, dry-run that play
+  // on a copy of the server's game at the start of each bidding phase.
+  const plannedCalls = () => {
+    const dry = structuredClone(rooms.get(code).game);
+    dry.phase = 'playing';
+    dry.bids = Array(3).fill(2);
+    while (dry.phase === 'playing') G.playCard(dry, dry.turn, G.legalCards(dry.hands[dry.turn], dry.trick)[0]);
+    return dry.tricksWon.map((t) => (t === 0 ? 0 : Math.min(12, Math.max(2, t))));
+  };
+  let plan = null;
   let sawBidding = false;
   while (seats[0].state.phase !== 'gameOver') {
     const st = seats[0].state;
@@ -67,12 +78,13 @@ test('3 players: full game to 29 with a reconnect', async () => {
     } else if (st.phase === 'bidding') {
       sawBidding = true;
       assert.ok(st.game.round >= 2);
+      if (plan?.round !== st.game.round) plan = { round: st.game.round, calls: plannedCalls() };
       const turn = st.game.turn;
       const me = seats[turn];
       assert.deepEqual(me.state.game.callOptions, [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
       assert.equal((await call(seats[(turn + 1) % 3], 'bid', { bid: 2 })).error, 'Not your turn to call');
       assert.match((await call(me, 'bid', { bid: 1 })).error, /nil/);
-      assert.ok((await call(me, 'bid', { bid: 2 })).ok);
+      assert.ok((await call(me, 'bid', { bid: plan.calls[turn] })).ok);
     } else {
       const me = seats[st.game.turn];
       const { legal, hand } = me.state.game;

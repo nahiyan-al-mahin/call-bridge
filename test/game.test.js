@@ -82,7 +82,11 @@ test('call options are nil and 2..12', () => {
 test('scoring', () => {
   assert.equal(G.roundDelta(null, 5), 5); // round 1
   assert.equal(G.roundDelta(3, 3), 3);
-  assert.equal(G.roundDelta(3, 7), 3); // extra tricks add nothing
+  assert.equal(G.roundDelta(3, 4), 3); // one over still succeeds
+  assert.equal(G.roundDelta(3, 2), -3); // too few
+  assert.equal(G.roundDelta(3, 5), -3); // two over fails
+  assert.equal(G.roundDelta(3, 6), -3);
+  assert.equal(G.roundDelta(3, 7), -3);
   assert.equal(G.roundDelta(4, 2), -4);
   assert.equal(G.roundDelta(0, 0), 10);
   assert.equal(G.roundDelta(0, 1), -10);
@@ -210,23 +214,34 @@ test('dealer rotates counter-clockwise each round', () => {
   assert.deepEqual(dealers, [0, 1, 2, 3, 0]);
 });
 
-// Plays whole games with random legal moves (and some timeouts) and checks invariants.
+// Plays whole games (with some timeouts) and checks invariants.
 for (const n of [2, 3, 4]) {
   test(`full ${n}-player game simulation reaches a single winner at 29+`, () => {
     const rng = seeded(100 + n);
     const g = G.createGame(n);
-    // Mostly safe calls of 2, with some nil and 3 calls, so scores trend upward.
-    const pickCall = () => { const r = rng(); return r < 0.1 ? 0 : r < 0.2 ? 3 : 2; };
+    // Everyone plays their highest legal card. Before each round's calls, that
+    // strategy is dry-run on a copy so players call what they will win (nil for 0).
+    // Timeouts add noise, so some calls still fail.
+    const strength = (c) => (G.suitOf(c) === G.TRUMP ? 100 : 0) + G.rankOf(c);
+    const highest = (game) =>
+      G.legalCards(game.hands[game.turn], game.trick).reduce((hi, c) => (strength(c) > strength(hi) ? c : hi));
+    const plannedCalls = () => {
+      const dry = structuredClone(g);
+      dry.phase = 'playing';
+      dry.bids = Array(n).fill(2);
+      while (dry.phase === 'playing') G.playCard(dry, dry.turn, highest(dry));
+      return dry.tricksWon.map((t) => (t === 0 ? 0 : Math.min(12, Math.max(2, t))));
+    };
     while (g.phase !== 'gameOver') {
       G.startRound(g, rng);
+      const calls = g.phase === 'bidding' ? plannedCalls() : null;
       while (g.phase === 'bidding') {
         if (rng() < 0.1) G.timeoutMove(g, rng);
-        else G.placeBid(g, g.turn, pickCall());
+        else G.placeBid(g, g.turn, calls[g.turn]);
       }
       while (g.phase === 'playing') {
         if (rng() < 0.1) { G.timeoutMove(g, rng); continue; }
-        const legal = G.legalCards(g.hands[g.turn], g.trick);
-        G.playCard(g, g.turn, legal[Math.floor(rng() * legal.length)]);
+        G.playCard(g, g.turn, highest(g));
       }
       assert.equal(g.tricksWon.reduce((a, b) => a + b), 13);
       assert.ok(g.round < 500, 'game should end');
